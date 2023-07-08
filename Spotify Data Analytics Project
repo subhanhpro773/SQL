@@ -1,5 +1,5 @@
 # For this project, I downloaded Spotify data from Kaggle.
-# Then I added this table to insert the data into a database to import the Spotify data I downloaded
+# Then I added this table that was pre-set to insert the data into a database to import the Spotify data I downloaded
 
 CREATE TABLE BIT_DB.Spotifydata (
 id integer PRIMARY KEY,
