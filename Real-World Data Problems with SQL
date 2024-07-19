@@ -1,0 +1,85 @@
+with monthly_rev as (
+select
+    date_trunc('month', s.orderdate) as order_month,
+    p.productname, 
+    sum(s.revenue) as revenue
+from 
+    subscriptions s
+join
+    products p
+on s.productid = p.productid 
+where
+    s.orderdate between '2022-01-01' and '2022-12-31'
+group by
+    date_trunc('month', s.orderdate), p.productname
+)
+
+
+
+select 
+    productname,
+    min(revenue) as min_rev,
+    max(revenue) as max_rev,
+    avg(revenue) as avg_rev,
+    stddev(revenue) as std_dev_rev
+from 
+    monthly_rev
+group by
+    productname;
+
+
+
+with link_click_track as (
+select 
+    userid,
+    count(*) as num_link_clicks
+from
+    frontendeventlog
+where
+    eventid = 5
+group by
+    userid
+)
+
+select
+    num_link_clicks,
+    count(*) as num_users
+from 
+    link_click_track
+group by
+    num_link_clicks;
+
+
+
+select
+    customerid,
+    count(productid) as num_products,
+    sum(numberofusers) as total_users,
+    case 
+        when sum(numberofusers) >= 5000 
+        or count(productid) = 1
+        then 1 else 0
+    end as upsell_opportunity
+from 
+    subscriptions 
+group by
+    customerid:
+
+
+
+select
+    l.userid, 
+    sum(case when l.eventid = 1 then 1 else 0 end) as viewedhelpcenterpage,
+    sum(case when l.eventid = 2 then 1 else 0 end) as clickedfaqs,
+    sum(case when l.eventid = 3 then 1 else 0 end) as clickedcontactsupport,
+    sum(case when l.eventid = 4 then 1 else 0 end) as submittedticket 
+from
+    frontendeventlog l
+join
+    frontendeventdefinitions d
+on l.eventid = d.eventid
+where d.eventtype = 'Customer Support'
+group by 
+  l.userid;
+
+
