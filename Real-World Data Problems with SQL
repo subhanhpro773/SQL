@@ -86,13 +86,11 @@ group by
 
 
 
--- SQL request(s)​​​​​​‌​‌‌​‌‌‌​​​‌‌‌‌​​‌‌​‌​​​‌ below
 With all_subscriptions as(
 select 
 	*
 from
 	subscriptionsproduct1
---UNION subscriptions tables here
 union
 
 select 
@@ -100,6 +98,7 @@ select
 from
 	subscriptionsproduct2
 )
+
 select
 	date_trunc('year', expirationdate) as exp_year, 
 	count(*) as subscriptions
@@ -109,10 +108,10 @@ where
 	active = 1
 group by 
 	date_trunc('year', expirationdate)
+;
 
 
 
--- SQL request(s)​​​​​​‌​‌‌​‌‌‌​​​‌‌‌‌​​‌‌‌‌‌​‌​ below
 with all_cancelation_reasons as(
 select
     subscriptionid, 
@@ -135,9 +134,6 @@ select
     cancelationreason3 as cancelationreason
 from
     cancelations
-
---UNION cancelation reasons columns
-
 )
 
 select 
@@ -147,6 +143,22 @@ select
     /count(distinct subscriptionid) as percent_expensive
 from    
     all_cancelation_reasons
+;
+
+
+
+select
+    e.employeeid, 
+    e.name as employee_name,
+    m.name as manager_name,
+    coalesce(m.email, e.email) as contact_email
+from
+    employees e
+left join 
+    employees m
+on e.managerid = m.employeeid
+where 
+    e.department = 'Sales'
 ;
 
 
