@@ -163,3 +163,40 @@ where
 
 
 
+select 
+    s.salesemployeeid,
+    s.saledate,
+    s.saleamount,
+    sum(s.saleamount) 
+        over (partition by s.salesemployeeid 
+        order by s.saledate) as running_total,
+    cast(sum(s.saleamount) 
+        over (partition by s.salesemployeeid 
+        order by s.saledate) as float)
+        /
+        e.quota as percent_quota
+from
+    sales s 
+join
+    employees e
+on s.salesemployeeid = e.employeeid
+order by s.salesemployeeid
+;
+
+
+
+select
+    *,
+    lead(movementdate, 1) 
+        over (partition by subscriptionid 
+        order by movementdate) 
+    as nextstatusmovementdate,
+    lead(movementdate, 1) 
+        over (partition by subscriptionid 
+        order by movementdate) - movementdate
+    as timeinstatus
+from
+    paymentstatuslog
+where 
+    subscriptionid = 38844
+;
