@@ -1,0 +1,371 @@
+Real-World Data Problems with SQL
+
+-- Product Analytics in SQL with CTEs
+
+-- Code Challenge: Pull descriptive statistics with a CTE
+
+/*
+The leadership team at your company is making goals for 2023 and wants to understand how much revenue each of the product subscriptions, basic and expert, are generating each month. 
+More specifically, they want to understand the distribution of monthly revenue across the past year, 2022.
+
+They've asked you the following questions:
+
+1. How much revenue does each product usually generate each month?
+2. Which product had the most success throughout all of last year?
+3. Did either product fluctuate greatly each month or was the month-to-month trend fairly consistent?
+
+Since the request is for a board meeting tomorrow, you decide that a granular report of monthly revenue by product probably isn't the best deliverable, 
+because a large table of numbers isn't great for gleaning quick insights. 
+Instead, you decide to calculate something more high-level: the minimum, maximum, average, and standard deviation of monthly revenue for each product for the year 2022. 
+This will equip leadership with a quick summary of the revenue and consistency that each product provided last year.
+*/
+
+with monthly_rev as (
+select
+    date_trunc('month', s.orderdate) as order_month,
+    p.productname, 
+    sum(s.revenue) as revenue
+from 
+    subscriptions s
+join
+    products p
+on s.productid = p.productid 
+where
+    s.orderdate between '2022-01-01' and '2022-12-31'
+group by
+    date_trunc('month', s.orderdate), p.productname
+)
+
+select 
+    productname,
+    min(revenue) as min_rev,
+    max(revenue) as max_rev,
+    avg(revenue) as avg_rev,
+    stddev(revenue) as std_dev_rev
+from 
+    monthly_rev
+group by
+    productname
+;
+
+
+-- Code Challenge: Explore variable distributions with CTEs
+
+/*
+A manager on the marketing team comes to you to ask about the performance of their recent email campaign. 
+Now that the campaign has been launched, the marketing manager wants to know how many users have clicked the link in the email.
+
+While this project was being planned, you collaborated with the front-end engineers to create tracking events for the front end of the product located in the frontendeventlog table. 
+One of these events, eventid = 5, is logged when the user reaches a unique landing page that is only accessed from this campaign email. 
+Since the event tracks when a user views the unique landing page from the email, tracking eventid = 5 will be the best method to count 
+how many users have clicked the link in the campaign email.
+
+Since an overall aggregate metric like an average can hide outliers and further insights under the hood, 
+you decide it's best to calculate the distribution of the number of email link clicks per user. 
+In other words, how many users clicked the email link one time, two times, three times, and so on?
+
+Since the frontendeventlog only logs events that do happen, we can't count the number of users that received the email but didn't click on the link 
+unless we bring in the data from somewhere else. For simplicity, let's ignore this group and only count the events, or email clicks, in the frontendevent log.
+*/
+
+with link_click_track as (
+select 
+    userid,
+    count(*) as num_link_clicks
+from
+    frontendeventlog
+where
+    eventid = 5
+group by
+    userid
+)
+
+select
+    num_link_clicks,
+    count(*) as num_users
+from 
+    link_click_track
+group by
+    num_link_clicks
+;
+
+
+-- Data Transformations in SQL With CASE
+
+-- Code Challenge: Creating binary columns with CASE
+
+/*
+The product team is launching a new product offering that can be added on top of a current subscription for an increase in the customer's annual fee. 
+The sales team has decided that they first want to reach out to a select group of customers to offer the new product and get feedback before offering it to the entire customer base.
+
+They've decided it would be best to reach out to customers who meet one of the following two conditions:
+
+1. Have at least 5,000 registered users
+
+• Companies with large amounts of users are a significant upsell opportunity,
+because they can lead to more potential revenue. (More users = More $)
+
+OR
+
+2. Only have one product subscription
+
+• Based on conversations the sales team has had with customers, 
+the companies that already have subscriptions for two products are not going to be willing to spend more and add onto their current subscriptions.
+
+You decide to help out the sales team by providing them a report with all current customers and the number of product subscriptions and registered users they currently have. 
+To make it extra easy for the sales team to identify customers that are upsell_opportunity, 
+you also include a binary column that flags the customers that meet one of these conditions.
+*/
+
+select
+    customerid,
+    count(productid) as num_products,
+    sum(numberofusers) as total_users,
+    case 
+        when sum(numberofusers) >= 5000 
+        or count(productid) = 1
+        then 1 else 0
+    end as upsell_opportunity
+from 
+    subscriptions 
+group by
+    customerid
+;
+
+
+-- Code Challenge: Create aggregated columns with CASE
+
+/*
+The design team recently redesigned the customer support page on the website, and they want to run an AB test to see how the newly designed page performs compared to the original. 
+An AB test is a statistical test used frequently in data science to measure the impact changes have on specified metrics. 
+The users will be randomly assigned into two groups: control and treatment. 
+The users in control group will see the current customer support page, and the users in treatment will see the new page design. 
+The analytics team needs to track user activity via frontend events (button clicking, page viewing, etc.) to inform the product team for future iterations. 
+At the end of the experiment, the results of the control and treatment group will be compared to make a final product recommendation.
+
+You decide that it will be important to track user activity and ticket submissions on the customer support page since they could be impacted, 
+either positively or negatively, by the design changes. 
+
+You choose the following events to track:
+
+• When a user views the help center page: ViewedHelpenterPage
+• When a user clicks on the Frequently Asked Questions link: ClickedFAQs
+• When a user clicks the contact customer support button: ClickedContactSupport
+• When a user clicks the submit ticket button: SubmittedTicket
+*/
+
+select
+    l.userid, 
+    sum(case when l.eventid = 1 then 1 else 0 end) as viewedhelpcenterpage,
+    sum(case when l.eventid = 2 then 1 else 0 end) as clickedfaqs,
+    sum(case when l.eventid = 3 then 1 else 0 end) as clickedcontactsupport,
+    sum(case when l.eventid = 4 then 1 else 0 end) as submittedticket 
+from
+    frontendeventlog l
+join
+    frontendeventdefinitions d
+on l.eventid = d.eventid
+where d.eventtype = 'Customer Support'
+group by 
+  l.userid
+;
+
+
+-- Combining Multiple Data Sources in SQL UNION
+
+-- Code Challenge: Combine product tables with UNION
+
+/*
+The chief growth officer is focused on reducing churn, or the number of customers that don't renew their annual subscription. 
+She is planning to launch multiple product experiments and marketing campaigns throughout 2023 to drive users to renew their subscriptions. 
+She's first conducting research to understand the potential impact that the churn initiative can have on the business. 
+She reaches out to your team and asks when all active subscriptions are going to expire.
+
+Because of data modeling limitations, your company was prevented from putting both products in the same table, 
+so there are currently separate tables for each product, subscriptionsproducti and subscriptionsproduct2.
+
+Sometimes, even if it's not the most optimal solution, data can be stored in multiple places due to:
+
+• Data coming from different data sources
+• Poor ETL and data modeling
+• Technical migrations that don't align with legacy systems
+• Company or product acquisitions or mergers
+
+Even though you don't need to segment by product, you do need to include BOTH products in your yearly counts. 
+UNION will be the best tool to use to combine both products into one table to fulfill the chief growth officer's request.
+*/
+
+With all_subscriptions as(
+select 
+	*
+from
+	subscriptionsproduct1
+union
+
+select 
+	*
+from
+	subscriptionsproduct2
+)
+
+select
+	date_trunc('year', expirationdate) as exp_year, 
+	count(*) as subscriptions
+from 
+	all_subscriptions
+where
+	active = 1
+group by 
+	date_trunc('year', expirationdate)
+;
+
+
+-- Code Challenge: Unpivoting columns into rows using UNION
+
+/*
+Since the chief growth officer is tackling churn next year, one of her big questions is: 
+"why are users canceling and not renewing their subscriptions?" 
+Knowing why users aren't renewing their subscriptions will be a key insight into how to prevent churn in the future. 
+Is it because they don't like the product? Are they leaving for a competitor? Or maybe it's out of budget and too expensive for them? Only the data can help us know for sure!
+
+When users decide to cancel their subscription, they're able to select up to three reasons for canceling out of a preset list. 
+Users can't select the same reason twice, and some users may even select less than three reasons and have null values in some of the cancelation reason columns. 
+Since the economy has been tough lately, you decide to first pull the percent of canceled subscriptions that canceled due to the product being too expensive.
+*/
+
+with all_cancelation_reasons as(
+select
+    subscriptionid, 
+    cancelationreason1 as cancelationreason
+from
+    cancelations
+
+union
+
+select
+    subscriptionid, 
+    cancelationreason2 as cancelationreason
+from
+    cancelations
+
+union
+
+select
+    subscriptionid, 
+    cancelationreason3 as cancelationreason
+from
+    cancelations
+)
+
+select 
+    cast(count(
+        case when cancelationreason = 'Expensive' 
+        then subscriptionid end) as float)
+    /count(distinct subscriptionid) as percent_expensive
+from    
+    all_cancelation_reasons
+;
+
+
+-- Dealing with Hierarchical dData in SQL With Self Joins
+
+-- Code Challenge: Employee-manager data with a self join
+
+/*
+The VP of sales is currently contacting all of the managers who have direct reports in the Sales department to notify them of the new commission structure. 
+Using the employees table, which contains all employees and their associated manager, 
+you can pull a report of all sales employees and their manager's email address using a self join. 
+However, with your sharp thinking, 
+you notice that several employees have null values for their manager's email address due to the fact that some employees don't have a manager logged in the database.
+
+Considering that the goal of this business problem is to spread the word about an important business change that will affect the sales team, 
+you know that null email addresses won't be useful in the output. 
+I mean...how would you feel if you weren't notified of this important change because you didn't have a manager logged for you in the database? We can't always accept null values, 
+and sometimes we have to recode them or impute them with another value that is more meaningful for the business. 
+Without bothering the super busy VP with this, you take the initiative and modify your query so that it replaces all null manager emails with the employees email. 
+This way, all sales employees without a manager email will receive the information directly.
+*/
+
+select
+    e.employeeid, 
+    e.name as employee_name,
+    m.name as manager_name,
+    coalesce(m.email, e.email) as contact_email
+from
+    employees e
+left join 
+    employees m
+on e.managerid = m.employeeid
+where 
+    e.department = 'Sales'
+;
+
+
+-- Solving Advanced Problems in SQL with Window Functions
+
+-- Code Challenge: Get running totals with window functions
+
+/*
+The sales team works diligently to sell the product, and they have quotas that they must reach in order to earn all of their commission. 
+Because these goals are so intimately tied to revenue, the manager of the team wants to track each sales member's performance throughout the year. 
+You suggest a % of quota reached metric that could be displayed on a dashboard, 
+but the sales manager expresses her concern that a single metric won't give her visibility into their progress throughout the year. 
+You suggest providing a running_total of sales revenue and a percent_quota metric that will be recalculated every time a sales member makes another sale. 
+She agrees, and you get started!
+*/
+
+select 
+    s.salesemployeeid,
+    s.saledate,
+    s.saleamount,
+    sum(s.saleamount) 
+        over (partition by s.salesemployeeid 
+        order by s.saledate) as running_total,
+    cast(sum(s.saleamount) 
+        over (partition by s.salesemployeeid 
+        order by s.saledate) as float)
+        /
+        e.quota as percent_quota
+from
+    sales s 
+join
+    employees e
+on s.salesemployeeid = e.employeeid
+order by s.salesemployeeid
+;
+
+
+-- Code Challenge: Timestamp differences with LEAD()
+
+/*
+A customer has complained that it took too long for them complete their payment process due to there being an error with the system. 
+The customer support team brought this issue up and asked the analytics team to
+
+investigate the payment funnel time data for subscriptionid = 38844. 
+As subscriptions move through the payment statuses, they are logged in the paymentstatuslog table using the statusid to show what status they moved to. 
+They can go back and forth and move through statuses multiple times.
+
+Each step of the payment process from the user point of view is outlined below:
+
+1. The user opens the widget to initiate the payment process.
+2. The user types in their credit card information.
+3. The user clicks the "submit" button to complete their part of the payment process.
+4. The product sends the data to the third-party payment company.
+5. The third-party payment company completes the transaction and reports back.
+*/
+
+select
+    *,
+    lead(movementdate, 1) 
+        over (partition by subscriptionid 
+        order by movementdate) 
+    as nextstatusmovementdate,
+    lead(movementdate, 1) 
+        over (partition by subscriptionid 
+        order by movementdate) - movementdate
+    as timeinstatus
+from
+    paymentstatuslog
+where 
+    subscriptionid = 38844
+;
