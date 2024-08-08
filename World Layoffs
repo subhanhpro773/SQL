@@ -1,11 +1,13 @@
 -- Data Cleaning
 
+-- https://www.kaggle.com/datasets/swaptr/layoffs-2022
+
 
 SELECT *
 FROM layoffs;
 
 
--- first thing we want to do is create a staging table. This is the one we will work in and clean the data. We want a table with the raw data in case something happens
+-- First thing to do is create a staging table. This is the one to work in and clean the data. A table with the raw data stays in case something happens.
 
 CREATE TABLE layoffs_staging
 LIKE layoffs;
@@ -150,6 +152,8 @@ MODIFY COLUMN `date` DATE;
 
 -- 3. Null Values and Blank Values 
 
+
+
 UPDATE layoffs_staging2
 SET industry = NULL
 WHERE industry = '';
@@ -180,11 +184,15 @@ SELECT *
 FROM layoffs_staging2
 WHERE company LIKE 'Bally%';
 
+-- filled in some values where there shouldn't be a null or a blank value 
+
 
 
 -- 4. Remove any Columns and Rows that are not necessary 
 
 
+
+-- Data is used for exploring about layoffs, with rows that have null values or blank values in all columns related to layoff should be removed
 
 SELECT * 
 FROM layoffs_staging2
@@ -200,9 +208,12 @@ FROM layoffs_staging2
 WHERE total_laid_off IS NULL
 AND percentage_laid_off IS NULL;
 
+-- Rows that have null values or blank values in all columns related to layoff are removed
 
 SELECT * 
 FROM layoffs_staging2;
 
 ALTER TABLE layoffs_staging2
 DROP COLUMN row_num;
+
+-- Removed "row_num" column as it is no longer needed and was only used to have rows being unique
